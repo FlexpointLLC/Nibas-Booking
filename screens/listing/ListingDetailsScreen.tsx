@@ -282,15 +282,34 @@ export default function ListingDetailsScreen({ navigation, route }: any) {
 
           <View style={styles.divider} />
 
-          {/* Sleep */}
-          <Text style={styles.sectionTitle}>Where you'll sleep</Text>
-          <Image
-            source={{
-              uri: "https://images.unsplash.com/photo-1560185009-dddeb820c7b7?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80",
-            }}
-            style={styles.sleepImage}
-          />
-          <Text style={styles.sleepLabel}>Bedroom</Text>
+          {/* Features */}
+          <Text style={styles.sectionTitle}>Features</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={{ flexDirection: "row", marginLeft: -20, paddingLeft: 20 }}
+          >
+            {[
+              {
+                title: "Bedroom",
+                subtitle: "1 queen bed",
+                image:
+                  "https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80",
+              },
+              {
+                title: "Living Room",
+                subtitle: "1 sofa bed",
+                image:
+                  "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80",
+              },
+            ].map((room, index) => (
+              <View key={index} style={{ marginRight: 16, width: 160 }}>
+                <Image source={{ uri: room.image }} style={styles.sleepImage} />
+                <Text style={styles.sleepLabel}>{room.title}</Text>
+                <Text style={styles.sleepSubtitle}>{room.subtitle}</Text>
+              </View>
+            ))}
+          </ScrollView>
 
           <View style={styles.divider} />
 
@@ -588,8 +607,14 @@ const styles = StyleSheet.create({
     color: "#0e121b",
     marginBottom: 16,
   },
-  sleepImage: { width: 150, height: 100, borderRadius: 8, marginBottom: 8 },
-  sleepLabel: { fontSize: 14, fontWeight: "500" },
+  sleepImage: { width: "100%", height: 120, borderRadius: 12, marginBottom: 8 },
+  sleepLabel: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#0e121b",
+    marginBottom: 2,
+  },
+  sleepSubtitle: { fontSize: 12, color: "#4B5563" },
   amenityRow: {
     flexDirection: "row",
     alignItems: "center",

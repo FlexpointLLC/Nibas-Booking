@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -11,7 +11,10 @@ import {
   FlatList,
   StatusBar,
   Platform,
+  ActivityIndicator,
+  RefreshControl,
 } from "react-native";
+import { supabase } from "../../lib/supabase";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ChevronRight, Heart } from "lucide-react-native";
 
@@ -76,6 +79,9 @@ const BEST_MATCH = [
 
 export default function ExploreScreen({ navigation }: any) {
   const [activeCategory, setActiveCategory] = useState("House");
+  const [listings, setListings] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const categories = [
     { name: "House", icon: HouseIcon },
@@ -83,19 +89,54 @@ export default function ExploreScreen({ navigation }: any) {
     { name: "Hotel", icon: HotelIcon },
   ];
 
+  useEffect(() => {
+    fetchListings();
+  }, [activeCategory]);
+
+  const fetchListings = async () => {
+    setLoading(true);
+    try {
+      let query = supabase.from("listings").select("*");
+
+      if (activeCategory) {
+        query = query.eq("category", activeCategory);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+      setListings(data || []);
+    } catch (error) {
+      console.error("Error fetching listings:", error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchListings();
+  }, [activeCategory]);
+
   const renderQuickPick = ({ item }: { item: string }) => (
     <View style={styles.quickPickItem}>
       <Image source={{ uri: item }} style={styles.quickPickImage} />
     </View>
   );
 
-  const renderListingCard = ({ item }: { item: (typeof POPULAR_HOMES)[0] }) => (
+  const renderListingCard = ({ item }: { item: any }) => (
     <TouchableOpacity
       style={styles.card}
       onPress={() => navigation.navigate("ListingDetails", { listing: item })}
     >
       <View style={styles.imageContainer}>
-        <Image source={{ uri: item.image }} style={styles.cardImage} />
+        <Image
+          source={{
+            uri: item.image_urls?.[0] || "https://via.placeholder.com/150",
+          }}
+          style={styles.cardImage}
+        />
         <TouchableOpacity style={styles.favoriteButton}>
           <Heart size={16} color="#fff" />
         </TouchableOpacity>
@@ -104,108 +145,136 @@ export default function ExploreScreen({ navigation }: any) {
         <Text style={styles.cardTitle} numberOfLines={1}>
           {item.title}
         </Text>
-        <Text style={styles.cardPrice}>{item.price}</Text>
+        <Text style={styles.cardPrice}>
+          {item.price_per_night} {item.currency} / night
+        </Text>
       </View>
     </TouchableOpacity>
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 100 }}
+    <View style={{ flex: 1, backgroundColor: "#2B8761" }}>
+      <StatusBar barStyle="light-content" backgroundColor="#2B8761" />
+      <SafeAreaView edges={["top"]} style={{ backgroundColor: "#2B8761" }} />
+      <SafeAreaView
+        edges={["left", "right", "bottom"]}
+        style={styles.container}
       >
-        {/* Search Header */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.searchBar}
-            activeOpacity={0.9}
-            onPress={() => navigation.navigate("SearchModal")}
-          >
-            <SearchIcon width={20} height={20} color="#9CA3AF" />
-            <Text
-              style={[
-                styles.searchInput,
-                { color: "#9CA3AF", paddingVertical: 12 },
-              ]}
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 100 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#2B8761"
+              colors={["#2B8761"]}
+            />
+          }
+        >
+          {/* Search Header */}
+          <View style={styles.header}>
+            <TouchableOpacity
+              style={styles.searchBar}
+              activeOpacity={0.9}
+              onPress={() => navigation.navigate("SearchModal")}
             >
-              Search destinations
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Categories */}
-        <View style={styles.categoriesContainer}>
-          {categories.map((cat) => {
-            const Icon = cat.icon;
-            const isActive = activeCategory === cat.name;
-            return (
-              <TouchableOpacity
-                key={cat.name}
-                style={styles.categoryItem}
-                onPress={() => setActiveCategory(cat.name)}
+              <SearchIcon width={20} height={20} color="#9CA3AF" />
+              <Text
+                style={[
+                  styles.searchInput,
+                  { color: "#9CA3AF", paddingVertical: 12 },
+                ]}
               >
-                <Icon width={32} height={32} />
-                <Text style={styles.categoryText}>{cat.name}</Text>
-                {isActive && <View style={styles.activeIndicator} />}
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {/* Quick Picks */}
-        <View style={styles.section}>
-          <View style={styles.standaloneSectionHeader}>
-            <Text style={styles.sectionTitle}>Quick picks</Text>
+                Search destinations
+              </Text>
+            </TouchableOpacity>
           </View>
-          <FlatList
-            data={QUICK_PICKS}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            renderItem={renderQuickPick}
-            keyExtractor={(item, index) => index.toString()}
-            contentContainerStyle={styles.horizontalList}
-          />
-        </View>
 
-        {/* Popular Homes */}
-        <View style={styles.section}>
-          <TouchableOpacity style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Popular homes in Dhaka</Text>
-            <ChevronRight size={20} color="#000" />
-          </TouchableOpacity>
-          <FlatList
-            data={POPULAR_HOMES}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            renderItem={renderListingCard}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.horizontalList}
-          />
-        </View>
+          {/* Categories */}
+          <View style={styles.categoriesContainer}>
+            {categories.map((cat) => {
+              const Icon = cat.icon;
+              const isActive = activeCategory === cat.name;
+              return (
+                <TouchableOpacity
+                  key={cat.name}
+                  style={styles.categoryItem}
+                  onPress={() => setActiveCategory(cat.name)}
+                >
+                  <Icon width={32} height={32} />
+                  <Text style={styles.categoryText}>{cat.name}</Text>
+                  {isActive && <View style={styles.activeIndicator} />}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
 
-        {/* Best match for you */}
-        <View style={styles.section}>
-          <TouchableOpacity style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Best match for you</Text>
-            <ChevronRight size={20} color="#000" />
-          </TouchableOpacity>
-          <Text style={styles.sectionSubtitle}>
-            King bed. Air conditioning. Ceiling fan. Clothing storage.
-            Essentials. Extra pillows and blankets.
-          </Text>
-          <FlatList
-            data={BEST_MATCH}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            renderItem={renderListingCard}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.horizontalList}
-          />
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+          {/* Quick Picks */}
+          <View style={styles.section}>
+            <View style={styles.standaloneSectionHeader}>
+              <Text style={styles.sectionTitle}>Quick picks</Text>
+            </View>
+            <FlatList
+              data={QUICK_PICKS}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              renderItem={renderQuickPick}
+              keyExtractor={(item, index) => index.toString()}
+              contentContainerStyle={styles.horizontalList}
+            />
+          </View>
+
+          {/* Popular Homes */}
+          <View style={styles.section}>
+            <TouchableOpacity style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Popular homes</Text>
+              <ChevronRight size={20} color="#000" />
+            </TouchableOpacity>
+            {loading ? (
+              <ActivityIndicator
+                size="large"
+                color="#2B8761"
+                style={{ marginTop: 20 }}
+              />
+            ) : (
+              <FlatList
+                data={listings}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                renderItem={renderListingCard}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.horizontalList}
+              />
+            )}
+          </View>
+
+          {/* Best match for you (Using same listings for demo, or could shuffle) */}
+          <View style={styles.section}>
+            <TouchableOpacity style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Best match for you</Text>
+              <ChevronRight size={20} color="#000" />
+            </TouchableOpacity>
+            <Text style={styles.sectionSubtitle}>
+              King bed. Air conditioning. Ceiling fan. Clothing storage.
+              Essentials. Extra pillows and blankets.
+            </Text>
+            {loading ? (
+              <ActivityIndicator size="small" color="#2B8761" />
+            ) : (
+              <FlatList
+                data={[...listings].reverse()} // Just show reverse for variety
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                renderItem={renderListingCard}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.horizontalList}
+              />
+            )}
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }
 
@@ -213,7 +282,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#fff",
-    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
   },
   header: {
     paddingHorizontal: 20,

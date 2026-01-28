@@ -26,13 +26,13 @@ export default function MessagesScreen() {
       />
 
       {/* Green Header Background */}
-      <View style={[styles.greenHeader, { paddingTop: insets.top + 20 }]}>
+      <View style={[styles.greenHeader, { paddingTop: insets.top + 10 }]}>
         <View style={styles.headerIcons}>
           <TouchableOpacity style={styles.iconBtn}>
-            <Search size={20} color="#000" />
+            <Search size={24} color="#FFF" />
           </TouchableOpacity>
           <TouchableOpacity style={styles.iconBtn}>
-            <Settings size={20} color="#000" />
+            <Settings size={24} color="#FFF" />
           </TouchableOpacity>
         </View>
       </View>
@@ -98,7 +98,7 @@ const styles = StyleSheet.create({
   headerIcons: {
     flexDirection: "row",
     justifyContent: "flex-end",
-    marginTop: 10,
+    // marginTop removed to match Profile alignment
   },
   iconBtn: {
     width: 40,

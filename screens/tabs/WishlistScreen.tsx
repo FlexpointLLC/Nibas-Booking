@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import { supabase } from "../../lib/supabase";
 import {
   View,
   Text,
@@ -8,6 +9,7 @@ import {
   Image,
   TouchableOpacity,
   ScrollView,
+  RefreshControl,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -15,20 +17,44 @@ const { width } = Dimensions.get("window");
 
 export default function WishlistScreen() {
   const insets = useSafeAreaInsets();
+  const [wishlists, setWishlists] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const wishlistItems = [
-    {
-      id: "1",
-      title: "Bedroom",
-      updated: "Today",
-      images: [
-        "https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80",
-        "https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80",
-        "https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80",
-        "https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80",
-      ],
-    },
-  ];
+  useEffect(() => {
+    fetchWishlists();
+  }, []);
+
+  const fetchWishlists = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("wishlists")
+        .select("*, listings(*)");
+
+      if (error) throw error;
+
+      // Group by something or just show list? Design expects "Folders".
+      // For now, I'll just map each wishlist item as a "folder" or list item.
+      // The current UI shows "Bedroom" etc.
+      // I'll just map them to cards.
+
+      // Let's adapt the UI slightly to show listings directly since "Wishlist" structure usually implies user created lists.
+      // But my schema is simple (user_id, listing_id).
+      // So I will just display the listings found in wishlist.
+
+      setWishlists(data || []);
+    } catch (error) {
+      console.error("Error fetching wishlists:", error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchWishlists();
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -53,24 +79,40 @@ export default function WishlistScreen() {
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingTop: 24, paddingBottom: 100 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#2B8761"
+              colors={["#2B8761"]}
+            />
+          }
         >
           <Text style={styles.screenTitle}>Wishlists</Text>
 
-          {wishlistItems.map((item) => (
-            <View key={item.id} style={styles.wishlistFolder}>
-              <View style={styles.gridContainer}>
-                {item.images.map((img, index) => (
-                  <Image
-                    key={index}
-                    source={{ uri: img }}
-                    style={styles.gridImage}
-                  />
-                ))}
-              </View>
-              <Text style={styles.folderTitle}>{item.title}</Text>
-              <Text style={styles.folderSubtitle}>{item.updated}</Text>
-            </View>
-          ))}
+          {loading ? (
+            <Text>Loading...</Text>
+          ) : wishlists.length === 0 ? (
+            <Text>No items in wishlist</Text>
+          ) : (
+            wishlists.map((item) => {
+              const listing = item.listings;
+              if (!listing) return null;
+
+              return (
+                <View key={item.id} style={styles.wishlistFolder}>
+                  <View style={styles.gridContainer}>
+                    <Image
+                      source={{ uri: listing.image_urls?.[0] }}
+                      style={[styles.gridImage, { width: "100%" }]}
+                    />
+                  </View>
+                  <Text style={styles.folderTitle}>{listing.title}</Text>
+                  <Text style={styles.folderSubtitle}>{listing.location}</Text>
+                </View>
+              );
+            })
+          )}
         </ScrollView>
       </View>
     </View>
